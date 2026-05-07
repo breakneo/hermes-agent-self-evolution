@@ -1,0 +1,2 @@
+{"task_input": "用 dogfood 测这个网站：https://www.baidu.com/，重点看首页搜索输入和提交主流程。", "expected_behavior": "应导航到百度首页，检查 console 与首屏状态，在搜索框输入明确测试词并提交；若出现百度安全验证，应将其识别为高严重级别的 Functional blocker，记录验证文案、触发步骤、结果页未展示这一事实，并附截图证据。", "difficulty": "medium", "category": "search-flow", "source": "golden"}
+{"task_input": "用 dogfood 测这个网站：https://www.baidu.com/，重点看首页搜索联想词是否贴合查询意图。", "expected_behavior": "应在首页搜索框输入具有明确意图的测试查询，观察下拉联想词，并判断其是否与完整查询相关；若联想词大量偏向泛化品牌词而非当前测试意图，应记录为中等级别 UX 问题，说明误导风险并保存截图。", "difficulty": "medium", "category": "search-suggestions", "source": "golden"}

@@ -1,0 +1,1 @@
+{"task_input": "用 dogfood 测这个网站：https://www.baidu.com/，重点看顶部导航中的“新闻”入口，并总结哪些路径正常、哪些路径被阻断。", "expected_behavior": "应验证“新闻”入口能否正常打开百度新闻页，并区分成功路径与失败路径：例如新闻页应被记录为正常打开、无明显布局异常或 console 错误；同时如果搜索主流程被安全验证打断，也应在总结中列为 blocker，而不是把所有路径都误判为失败。", "difficulty": "hard", "category": "navigation-health", "source": "golden"}

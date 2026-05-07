@@ -1,0 +1,1 @@
+{"task_input": "用 dogfood 测这个网站：https://www.baidu.com/，重点看“复杂问题就找文心助手”入口，以及从该页返回首页的链路。", "expected_behavior": "应点击文心助手入口，验证页面是否正常打开、是否能在未登录状态下完成至少一轮问答，再执行返回操作；若返回未恢复到原始百度首页，应记录为中等级别 Functional 问题，同时注明文心页面本身可用、无明显 console 错误或登录阻断。", "difficulty": "hard", "category": "subpage-flow", "source": "golden"}

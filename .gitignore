@@ -9,11 +9,19 @@ build/
 .venv/
 venv/
 .env
+.pytest_cache/
 
 # Generated eval datasets (local, not shared)
 datasets/**/*.jsonl
 datasets/**/*.json
 !datasets/.gitkeep
+!datasets/skills/dogfood/baidu-homepage/train.jsonl
+!datasets/skills/dogfood/baidu-homepage/val.jsonl
+!datasets/skills/dogfood/baidu-homepage/holdout.jsonl
+
+# Generated run artifacts
+output/
+dogfood-output/
 
 # Evolution snapshots
 snapshots/
