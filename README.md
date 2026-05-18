@@ -31,7 +31,9 @@ GEPA reads execution traces to understand *why* things fail (not just that they 
 # Install
 git clone https://github.com/NousResearch/hermes-agent-self-evolution.git
 cd hermes-agent-self-evolution
-pip install -e ".[dev]"
+uv venv --python 3.11 .venv
+source .venv/bin/activate
+uv pip install -e '.[dev]'
 
 # Point at your hermes-agent repo
 export HERMES_AGENT_REPO=~/.hermes/hermes-agent
@@ -48,6 +50,57 @@ python -m evolution.skills.evolve_skill \
     --iterations 10 \
     --eval-source sessiondb
 ```
+
+## Advanced Usage
+
+### Evaluate through a real Hermes runtime
+
+```bash
+python -m evolution.skills.evolve_skill \
+    --skill dogfood \
+    --eval-source golden \
+    --dataset-path datasets/skills/dogfood/baidu-homepage \
+    --eval-backend hermes
+```
+
+### Add an optional TBLite regression gate
+
+```bash
+python -m evolution.skills.evolve_skill \
+    --skill github-code-review \
+    --eval-source synthetic \
+    --run-tblite \
+    --tblite-mode fast
+```
+
+### Generate git / PR handoff artifacts or execute them directly
+
+```bash
+python -m evolution.skills.evolve_skill \
+    --skill github-code-review \
+    --eval-source synthetic \
+    --execute-git-apply
+
+python -m evolution.skills.evolve_skill \
+    --skill github-code-review \
+    --eval-source synthetic \
+    --execute-git-apply \
+    --execute-push \
+    --execute-pr
+```
+
+Notes:
+- By default the tool loads credentials from `~/.hermes/.env` and local `.env` when present, without overwriting already exported values.
+- When the local Hermes runtime uses `model.provider: custom`, default self-evolution model settings are aligned to the active Hermes config automatically.
+- `--execute-pr` requires `--execute-push`.
+
+## Golden Dataset Sample
+
+A browser-heavy golden sample for the `dogfood` skill is included at:
+
+- `datasets/skills/dogfood/baidu-homepage/`
+
+It captures both positive paths and blockers from a real Baidu homepage dogfood run, which makes it useful for evaluating browser QA skills more realistically than purely synthetic examples.
 
 ## What It Optimizes
 

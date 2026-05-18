@@ -1,5 +1,7 @@
 """Tests for constraint validators."""
 
+from pathlib import Path
+
 import pytest
 from evolution.core.constraints import ConstraintValidator
 from evolution.core.config import EvolutionConfig
@@ -7,7 +9,7 @@ from evolution.core.config import EvolutionConfig
 
 @pytest.fixture
 def validator():
-    config = EvolutionConfig()
+    config = EvolutionConfig(hermes_agent_path=Path("/tmp/hermes-agent"))
     return ConstraintValidator(config)
 
 
