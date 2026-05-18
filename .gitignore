@@ -27,6 +27,12 @@ dogfood-output/
 snapshots/
 *.pkl
 
+# Evolution run artifacts (per-run output trees can be large)
+output/
+
+# Windows reserved-name files that occasionally appear as 0-byte stragglers
+NUL
+
 # IDE
 .idea/
 .vscode/
