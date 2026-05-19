@@ -34,11 +34,13 @@ from evolution.core.stop_loss import StopLossGuard
 from evolution.core.constraints import ConstraintValidator
 from evolution.core.benchmark_gate import run_tblite_benchmark_gate
 from evolution.core.report_artifact import (
+    build_github_pr_title,
     write_report_artifacts,
     write_pr_ready_artifacts,
     write_github_pr_artifacts,
 )
 from evolution.core.git_pr_automation import (
+    build_evolution_branch_name,
     write_git_pr_automation_artifacts,
     execute_git_pr_automation,
 )
@@ -503,6 +505,10 @@ def evolve(
     dry_run: bool = False,
     allow_two_family_mode: bool = False,
     minimum_model_families: Optional[int] = None,
+    execute_git_apply: bool = False,
+    execute_push: bool = False,
+    execute_pr: bool = False,
+    push_remote: str = "origin",
 ):
     """Main evolution function — orchestrates the full optimization loop."""
 
@@ -831,6 +837,109 @@ def evolve(
 
     console.print(f"\n  Output saved to {output_dir}/")
 
+    # ── 11. Git / PR automation ────────────────────────────────────
+    if execute_git_apply:
+        if not config.hermes_agent_path or not (config.hermes_agent_path / ".git").exists():
+            console.print(
+                "[red]✗ --execute-git-apply requires a valid hermes-agent git repo. "
+                "Pass --hermes-repo or run from inside one.[/red]"
+            )
+            return
+
+        if execute_pr and not execute_push:
+            console.print("[yellow]⚠ --execute-pr requires --execute-push; enabling push automatically[/yellow]")
+            execute_push = True
+
+        console.print("\n[bold]Executing git apply plan[/bold]")
+
+        # Determine skill_relpath from the loaded skill path
+        try:
+            skill_relpath = str(Path(skill_path).relative_to(config.hermes_agent_path / "skills"))
+        except ValueError:
+            console.print(
+                f"[red]✗ Skill path {skill_path} is not inside "
+                f"{config.hermes_agent_path / 'skills'}[/red]"
+            )
+            return
+
+        # Write PR-ready artifacts
+        pr_artifacts = write_pr_ready_artifacts(
+            output_dir=output_dir,
+            metrics=metrics,
+            baseline_skill_path=output_dir / "baseline_skill.md",
+            evolved_skill_path=output_dir / "evolved_skill.md",
+        )
+
+        # Write report artifacts
+        report_artifacts = write_report_artifacts(
+            output_dir=output_dir,
+            metrics=metrics,
+            baseline_skill_path=output_dir / "baseline_skill.md",
+            evolved_skill_path=output_dir / "evolved_skill.md",
+        )
+
+        # Write GitHub PR artifacts
+        github_artifacts = write_github_pr_artifacts(
+            output_dir=output_dir,
+            metrics=metrics,
+            baseline_skill_path=output_dir / "baseline_skill.md",
+            evolved_skill_path=output_dir / "evolved_skill.md",
+            report_path=report_artifacts["report_md"],
+            summary_path=report_artifacts["summary_json"],
+            diff_summary_path=pr_artifacts["diff_summary_md"],
+            review_checklist_path=pr_artifacts["review_checklist_md"],
+        )
+
+        # Write git PR automation artifacts
+        github_pr_body = github_artifacts["github_pr_body_md"]
+        assert github_pr_body is not None  # always written by write_github_pr_artifacts
+        automation_artifacts = write_git_pr_automation_artifacts(
+            output_dir=output_dir,
+            metrics=metrics,
+            hermes_repo=config.hermes_agent_path,
+            skill_relpath=skill_relpath,
+            evolved_skill_text=evolved_full,
+            github_pr_body_path=github_pr_body,
+            push_remote=push_remote,
+        )
+
+        # Execute the automation
+        gh_command: str | None = None
+        cmd_path = automation_artifacts.get("gh_pr_create_after_push_txt")
+        if cmd_path is not None:
+            gh_command = cmd_path.read_text().strip()
+
+        commit_message = build_github_pr_title(metrics)
+        branch_name = build_evolution_branch_name(
+            skill_name=skill_name,
+            timestamp=timestamp,
+        )
+
+        try:
+            exec_result = execute_git_pr_automation(
+                git_apply_plan={
+                    "hermes_repo": str(config.hermes_agent_path),
+                    "branch_name": branch_name,
+                    "target_skill_path": str(automation_artifacts["target_skill_path"]),
+                    "candidate_skill_file": str(automation_artifacts["candidate_skill_file"]),
+                    "commit_message": commit_message,
+                },
+                gh_pr_create_command=gh_command,
+                execute_push=execute_push,
+                execute_pr=execute_pr,
+            )
+
+            console.print(
+                f"\n[bold green]✓ Git apply executed — branch [bold]{branch_name}[/bold][/bold green]"
+            )
+            if execute_push:
+                console.print(f"  Pushed to {push_remote}/{branch_name}")
+            if execute_pr and exec_result.get("pr"):
+                console.print(f"  PR created: {exec_result['pr'].get('output', '').strip()}")
+        except Exception as exc:
+            console.print(f"[red]✗ Git automation failed: {exc}[/red]")
+            return
+
     if improvement > 0:
         console.print(f"\n[bold green]✓ Evolution improved skill by {improvement:+.3f} ({improvement/max(0.001, avg_baseline)*100:+.1f}%)[/bold green]")
         console.print(f"  Review the diff: diff {output_dir}/baseline_skill.md {output_dir}/evolved_skill.md")
@@ -866,6 +975,26 @@ def evolve(
     default=None,
     help="Minimum distinct model families required (overrides default/--allow-two-family-mode)",
 )
+@click.option(
+    "--execute-git-apply",
+    is_flag=True,
+    help="Apply the evolved skill to the hermes-agent repo via git branch + commit",
+)
+@click.option(
+    "--execute-push",
+    is_flag=True,
+    help="Push the evolution branch to remote (requires --execute-git-apply)",
+)
+@click.option(
+    "--execute-pr",
+    is_flag=True,
+    help="Create a GitHub PR from the evolution branch (requires --execute-push)",
+)
+@click.option(
+    "--push-remote",
+    default="origin",
+    help="Remote name for git push (default: origin)",
+)
 def main(
     skill,
     iterations,
@@ -879,6 +1008,10 @@ def main(
     dry_run,
     allow_two_family_mode,
     minimum_model_families,
+    execute_git_apply,
+    execute_push,
+    execute_pr,
+    push_remote,
 ):
     """Evolve a Hermes Agent skill using DSPy + GEPA optimization."""
     evolve(
@@ -894,6 +1027,10 @@ def main(
         dry_run=dry_run,
         allow_two_family_mode=allow_two_family_mode,
         minimum_model_families=minimum_model_families,
+        execute_git_apply=execute_git_apply,
+        execute_push=execute_push,
+        execute_pr=execute_pr,
+        push_remote=push_remote,
     )
 
 
