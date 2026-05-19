@@ -512,6 +512,9 @@ def evolve(
 ):
     """Main evolution function — orchestrates the full optimization loop."""
 
+    # Load credential env files before any LLM call
+    load_default_env_files()
+
     if minimum_model_families is None:
         resolved_min_families = 2 if allow_two_family_mode else 3
     else:
